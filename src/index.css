@@ -51,9 +51,17 @@ ul {
 }
 
 .game-info {
+    display: flex;
+    flex-direction: column;
     margin-left: 20px;
+    flex-wrap: wrap;
 }
 
 .w-100 {
     width: 100%;
+}
+
+.move-history {
+    margin: 0.1rem;
+    font-size: 1rem;
 }

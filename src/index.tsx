@@ -40,22 +40,14 @@ class BoardState {
     cell: PlayerOrEmpty[][];
     player: Player;
     winner: PlayerOrEmpty;
-    constructor(
-        player: Player = 'X',
-        cell: PlayerOrEmpty[][] | null = null,
-        winner: PlayerOrEmpty = ''
-    ) {
-        this.player = player;
-        if (cell) {
-            this.cell = cell.slice();
-        } else {
-            this.cell = [
-                ['', '', ''],
-                ['', '', ''],
-                ['', '', ''],
-            ];
-        }
-        this.winner = winner;
+    constructor() {
+        this.player = 'X';
+        this.cell = [
+            ['', '', ''],
+            ['', '', ''],
+            ['', '', ''],
+        ];
+        this.winner = '';
     }
 }
 
@@ -96,19 +88,15 @@ class Board extends React.Component<BoardProps> {
 
 class GameState {
     history: BoardState[];
+    currentBoard: number;
     constructor() {
         this.history = new Array<BoardState>();
         this.history.push(new BoardState());
+        this.currentBoard = 0;
     }
 
     last = (): BoardState => {
-        return this.history[this.history.length - 1];
-    };
-
-    copy = (): GameState => {
-        let c = new GameState();
-        c.history = this.history.slice();
-        return c;
+        return this.history[this.currentBoard];
     };
 }
 
@@ -120,47 +108,73 @@ class Game extends React.Component {
     }
 
     render() {
+        const currentBoardState = this.state.history[this.state.currentBoard];
         return (
             <div className='game'>
-                {this.statusMessage(this.state.last())}
+                {this.statusMessage(currentBoardState)}
                 <div className='game-board'>
                     <Board
                         onClick={this.onCellClick}
-                        cell={this.state.last().cell}
+                        cell={currentBoardState.cell}
                     />
                 </div>
                 <div className='game-info'>
-                    <button onClick={() => this.setState(new GameState())}>
+                    <button
+                        className='move-history w-100'
+                        onClick={() => this.setState(new GameState())}
+                    >
                         Restart game
                     </button>
+                    {this.state.history.map(
+                        (_: BoardState, index: number): JSX.Element =>
+                            this.renderHistory(index)
+                    )}
                 </div>
             </div>
         );
     }
 
+    renderHistory = (index: number): JSX.Element => {
+        return (
+            <button
+                className='move-history w-100'
+                onClick={() => {
+                    this.setState({ currentBoard: index });
+                    debugger;
+                }}
+            >{`Reset board to Move ${index}`}</button>
+        );
+    };
+
     onCellClick = (row: number, column: number): void => {
+        const currentState = this.state.history[this.state.currentBoard];
         if (
-            this.state.last().cell[row][column] ||
-            this.state.last().winner !== ''
+            currentState.cell[row][column] !== '' ||
+            currentState.winner !== ''
         ) {
             return;
         }
 
-        const nextBoardState = new BoardState(
-            this.state.last().player,
-            this.state.last().cell,
-            this.state.last().winner
-        );
-        nextBoardState.player = this.state.last().player === 'X' ? 'O' : 'X';
-        nextBoardState.cell[row][column] = this.state.last().player;
+        const nextBoardState = new BoardState();
+        nextBoardState.player = currentState.player === 'X' ? 'O' : 'X';
+        nextBoardState.cell = JSON.parse(JSON.stringify(currentState.cell));
+        nextBoardState.cell[row][column] = currentState.player;
         nextBoardState.winner = winner(nextBoardState.cell);
-        const nextState = this.state.copy();
+        const nextState = new GameState();
+        nextState.currentBoard = this.state.currentBoard + 1;
+        nextState.history = JSON.parse(
+            JSON.stringify(
+                this.state.history.slice(0, this.state.currentBoard + 1)
+            )
+        );
         nextState.history.push(nextBoardState);
         this.setState(nextState);
+        debugger;
     };
 
     statusMessage = (state: BoardState): JSX.Element => {
         let message = '';
+        debugger;
         if (state.winner !== '') {
             message = `The winner is: ${state.winner}!`;
         } else if (this.isDraw(state.cell)) {

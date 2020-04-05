@@ -1,7 +1,11 @@
 import { PlayerOrEmpty } from './index';
 
 const lineWinner = (row: PlayerOrEmpty[]): PlayerOrEmpty => {
-    return new Set<PlayerOrEmpty>(row).size === 1 ? row[0] : '';
+    const rowSet = new Set<PlayerOrEmpty>(row);
+    if (rowSet.size === 1 && row[0] !== '') {
+        return row[0];
+    }
+    return '';
 };
 
 export const winner = (cell: PlayerOrEmpty[][]): PlayerOrEmpty => {
@@ -10,7 +14,7 @@ export const winner = (cell: PlayerOrEmpty[][]): PlayerOrEmpty => {
         if (row !== '') {
             return row;
         }
-        const col = lineWinner([cell[i][0], cell[i][1], cell[i][2]]);
+        const col = lineWinner([cell[0][i], cell[1][i], cell[2][i]]);
         if (col !== '') {
             return col;
         }
