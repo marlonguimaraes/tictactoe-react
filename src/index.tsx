@@ -19,9 +19,10 @@ serviceWorker.unregister();
 import React, { ReactElement } from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
+import { winner } from './winner';
 
 type Player = 'X' | 'O';
-type PlayerOrEmpty = Player | '';
+export type PlayerOrEmpty = Player | '';
 
 type SquareProps = {
     player: PlayerOrEmpty;
@@ -58,105 +59,129 @@ class BoardState {
     }
 }
 
-const lineWinner = (row: PlayerOrEmpty[]): PlayerOrEmpty => {
-    return new Set<PlayerOrEmpty>(row).size === 1 ? row[0] : '';
+type BoardProps = {
+    cell: PlayerOrEmpty[][];
+    onClick: (row: number, column: number) => void;
 };
-
-class Board extends React.Component {
-    state: BoardState = new BoardState();
-
-    onCellClick = (row: number, column: number): void => {
-        if (this.state.winner !== '') {
-            return;
-        }
-
-        if (this.state.cell[row][column].length === 0) {
-            const nextState = new BoardState(
-                this.state.player,
-                this.state.cell,
-                this.state.winner
-            );
-            nextState.player = this.state.player === 'X' ? 'O' : 'X';
-            nextState.cell[row][column] = this.state.player;
-            nextState.winner = this.winner(nextState.cell);
-            this.setState(nextState);
-        }
-    };
-
-    winner = (cell: PlayerOrEmpty[][]): PlayerOrEmpty => {
-        for (let i = 0; i < cell.length; i++) {
-            const row = lineWinner(cell[i]);
-            if (row !== '') {
-                return row;
-            }
-            const col = lineWinner([cell[i][0], cell[i][1], cell[i][2]]);
-            if (col !== '') {
-                return col;
-            }
-        }
-        const mainDiagonal = lineWinner([cell[0][0], cell[1][1], cell[2][2]]);
-        if (mainDiagonal !== '') {
-            return mainDiagonal;
-        }
-
-        const secDiagonal = lineWinner([cell[0][2], cell[1][1], cell[2][0]]);
-        return secDiagonal;
-    };
-
+class Board extends React.Component<BoardProps> {
     renderSquare(row: number, column: number) {
         return (
             <Square
                 onClick={() => {
-                    this.onCellClick(row, column);
+                    this.props.onClick(row, column);
                 }}
-                player={this.state.cell[row][column]}
+                player={this.props.cell[row][column]}
             />
         );
     }
 
-    render() {
-        const status =
-            this.state.winner === ''
-                ? `Next player: ${this.state.player}`
-                : `The winner is "${this.state.winner}"!`;
+    createRow = (index: number): JSX.Element[] => {
+        const row = new Array<JSX.Element>(3);
+        for (let i = 0; i < 3; i++) {
+            row[i] = this.renderSquare(index, i);
+        }
+        return row;
+    };
 
-        return (
-            <div>
-                <div className='status'>{status}</div>
-                <div className='board-row'>
-                    {this.renderSquare(0, 0)}
-                    {this.renderSquare(0, 1)}
-                    {this.renderSquare(0, 2)}
-                </div>
-                <div className='board-row'>
-                    {this.renderSquare(1, 0)}
-                    {this.renderSquare(1, 1)}
-                    {this.renderSquare(1, 2)}
-                </div>
-                <div className='board-row'>
-                    {this.renderSquare(2, 0)}
-                    {this.renderSquare(2, 1)}
-                    {this.renderSquare(2, 2)}
-                </div>
-            </div>
-        );
+    createRows = (): JSX.Element[] => {
+        return [0, 1, 2].map((index: number) => (
+            <div className='board-row'>{this.createRow(index)}</div>
+        ));
+    };
+
+    render() {
+        return <div>{this.createRows()}</div>;
     }
 }
 
+class GameState {
+    history: BoardState[];
+    constructor() {
+        this.history = new Array<BoardState>();
+        this.history.push(new BoardState());
+    }
+
+    last = (): BoardState => {
+        return this.history[this.history.length - 1];
+    };
+
+    copy = (): GameState => {
+        let c = new GameState();
+        c.history = this.history.slice();
+        return c;
+    };
+}
+
 class Game extends React.Component {
+    state: GameState;
+    constructor(props: any) {
+        super(props);
+        this.state = new GameState();
+    }
+
     render() {
         return (
             <div className='game'>
+                {this.statusMessage(this.state.last())}
                 <div className='game-board'>
-                    <Board />
+                    <Board
+                        onClick={this.onCellClick}
+                        cell={this.state.last().cell}
+                    />
                 </div>
                 <div className='game-info'>
-                    <div>{/* status */}</div>
-                    <ol>{/* TODO */}</ol>
+                    <button onClick={() => this.setState(new GameState())}>
+                        Restart game
+                    </button>
                 </div>
             </div>
         );
     }
+
+    onCellClick = (row: number, column: number): void => {
+        if (
+            this.state.last().cell[row][column] ||
+            this.state.last().winner !== ''
+        ) {
+            return;
+        }
+
+        const nextBoardState = new BoardState(
+            this.state.last().player,
+            this.state.last().cell,
+            this.state.last().winner
+        );
+        nextBoardState.player = this.state.last().player === 'X' ? 'O' : 'X';
+        nextBoardState.cell[row][column] = this.state.last().player;
+        nextBoardState.winner = winner(nextBoardState.cell);
+        const nextState = this.state.copy();
+        nextState.history.push(nextBoardState);
+        this.setState(nextState);
+    };
+
+    statusMessage = (state: BoardState): JSX.Element => {
+        let message = '';
+        if (state.winner !== '') {
+            message = `The winner is: ${state.winner}!`;
+        } else if (this.isDraw(state.cell)) {
+            message = `Draw, play again!`;
+        } else {
+            message = `Next to play: ${state.player}`;
+        }
+        return <div className='status w-100'>{message}</div>;
+    };
+
+    isDraw = (cell: PlayerOrEmpty[][]): boolean => {
+        for (let i = 0; i < cell.length; i++) {
+            if (
+                cell[i].filter((cell: PlayerOrEmpty): boolean => cell === '')
+                    .length > 0
+            ) {
+                return false;
+            }
+        }
+        return true;
+    };
 }
 
 ReactDOM.render(<Game />, document.getElementById('root'));
